@@ -37,3 +37,7 @@ npm install
 ```bash
 npm run dev
 ```
+
+## License
+
+MIT. See `/Users/kc/dev/mymind/LICENSE`.
