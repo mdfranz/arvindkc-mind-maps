@@ -13,6 +13,47 @@ Browser-based React app for building mind maps with local autosave and markdown 
 - PNG export of the current mind map view
 - Auto-saved browser-local storage for multiple mind maps
 
+## Architecture
+
+```mermaid
+graph TD
+    subgraph UI["UI Components"]
+        App["App Shell"]
+        VaultPanel["Vault Panel"]
+        Editor["Mind Map Editor"]
+        OutlinePanel["Outline Panel"]
+        
+        App --> VaultPanel
+        App --> Editor
+        App --> OutlinePanel
+    end
+
+    subgraph Hooks["Custom Hooks (State)"]
+        useVault["useVault (Map Lifecycle)"]
+        useAutosave["useAutosave (Persistence)"]
+        useOutline["useOutline (Sync Graph & MD)"]
+        
+        App --> useVault
+        App --> useAutosave
+        App --> useOutline
+    end
+
+    subgraph Libs["Domain Logic & Libraries"]
+        ReactFlow["@xyflow/react"]
+        LocalStore["localStore.ts (LocalStorage API)"]
+        Layout["layout.ts (Graph Layout Math)"]
+        Export["export.ts (PNG/MD Export)"]
+        OutlineSync["outlineSync.ts (MD Parsing)"]
+
+        Editor --> ReactFlow
+        useVault --> LocalStore
+        useAutosave --> LocalStore
+        Editor --> Layout
+        App --> Export
+        useOutline --> OutlineSync
+    end
+```
+
 ## Keyboard Shortcuts
 
 - `Enter`: add child topic and focus text edit immediately

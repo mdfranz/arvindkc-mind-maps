@@ -12,7 +12,7 @@ type MindGraph = {
 };
 
 export default function useVault() {
-  const [title, setTitle] = useState('Mind Map');
+  const [title, setTitle] = useState('Mind Map 1');
   const [status, setStatus] = useState('Ready');
 
   const [savedMaps, setSavedMaps] = useState<StoredMindMap[]>([]);
@@ -61,10 +61,22 @@ export default function useVault() {
   const createNewMap = useCallback(() => {
     const empty = createEmptyMap();
     requestLoadGraph(empty);
-    setTitle('Mind Map');
+
+    let maxNumber = 0;
+    for (const map of savedMaps) {
+      const match = map.title.match(/^Mind Map (\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+    setTitle(`Mind Map ${maxNumber + 1}`);
+
     setSelectedMapId(crypto.randomUUID());
     setStatus('Started new mind map. Previous maps stay in local storage.');
-  }, [requestLoadGraph]);
+  }, [requestLoadGraph, savedMaps]);
 
   const loadSavedMapById = useCallback(
     (mapId: string) => {
