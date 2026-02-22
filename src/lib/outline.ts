@@ -2,7 +2,9 @@ import type { Edge, Node } from '@xyflow/react';
 import { positionTree } from './layout';
 import type { MindNodeData, OutlineItem } from '../types';
 
-export function buildOutline(nodes: Node<MindNodeData>[], edges: Edge[]): OutlineItem[] {
+type MindFlowNode = Node<MindNodeData, 'mind'>;
+
+export function buildOutline(nodes: MindFlowNode[], edges: Edge[]): OutlineItem[] {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const childrenMap = new Map<string, string[]>();
 
@@ -82,7 +84,7 @@ export function parseOutlineText(outlineText: string): OutlineItem[] {
 }
 
 export function outlineToGraph(outline: OutlineItem[]): {
-  nodes: Node<MindNodeData>[];
+  nodes: MindFlowNode[];
   edges: Edge[];
 } {
   if (outline.length === 0) {
@@ -100,7 +102,7 @@ export function outlineToGraph(outline: OutlineItem[]): {
     };
   }
 
-  const nodes: Node<MindNodeData>[] = outline.map((item, index) => ({
+  const nodes: MindFlowNode[] = outline.map((item, index) => ({
     id: index === 0 ? 'root' : `node-${index}`,
     type: 'mind',
     selected: index === 0,

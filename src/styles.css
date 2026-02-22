@@ -285,10 +285,18 @@ button.primary {
 
 .mind-node.is-branch {
   min-width: 140px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid rgba(31, 92, 225, 0.16);
+  border-radius: 8px;
   box-shadow: none;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.mind-node.is-branch .react-flow__handle {
+  opacity: 0;
+  width: 8px;
+  height: 8px;
+  border: none;
   background: transparent;
 }
 
@@ -302,8 +310,8 @@ button.primary {
 }
 
 .mind-node-label.is-branch {
-  border: none;
-  border-radius: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
   padding: 0.2rem 0;
   background: transparent;
   color: var(--mind-color);
@@ -312,17 +320,16 @@ button.primary {
 }
 
 .mind-node-input.is-branch {
-  border: none;
-  border-bottom: 2px solid var(--mind-color);
-  border-radius: 0;
-  padding: 0.2rem 0;
-  background: transparent;
+  border: 1px solid var(--mind-color);
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  background: rgba(255, 255, 255, 0.88);
   color: var(--mind-color);
   font-size: 1.05rem;
   font-weight: 500;
 }
 
 .mind-node-input.is-branch:focus {
-  box-shadow: none;
-  border-bottom-color: #111827;
+  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.16);
+  border-color: #111827;
 }

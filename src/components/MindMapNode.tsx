@@ -1,10 +1,12 @@
 import { memo, useEffect, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import type { NodeProps } from '@xyflow/react';
+import type { Node, NodeProps } from '@xyflow/react';
 import type { MindNodeData } from '../types';
 
-function MindMapNode({ id, data, selected }: NodeProps<MindNodeData>) {
+type MindFlowNode = Node<MindNodeData, 'mind'>;
+
+function MindMapNode({ id, data, selected }: NodeProps<MindFlowNode>) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

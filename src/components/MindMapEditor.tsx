@@ -11,14 +11,14 @@ import {
   useNodesState
 } from '@xyflow/react';
 import MindMapNode from './MindMapNode';
+import { positionTree } from '../lib/layout';
 import type { MindNodeData, MindVisualStyle } from '../types';
 
+type MindFlowNode = Node<MindNodeData, 'mind'>;
+
 type MindMapEditorProps = {
-  nodes: Node<MindNodeData>[];
-  edges: Edge[];
-  graphVersion: number;
   onSnapshotReady: (container: HTMLElement | null) => void;
-  onStateChange: (nodes: Node<MindNodeData>[], edges: Edge[]) => void;
+  onStateChange: (nodes: MindFlowNode[], edges: Edge[]) => void;
   onExportPng: () => void;
   onExportDoc: () => void;
 };
@@ -27,7 +27,7 @@ const CHILD_X_OFFSET = 260;
 const CHILD_Y_OFFSET = 105;
 const BRANCH_COLORS = ['#1f5ce1', '#03a66a', '#c26000', '#ab47bc', '#0d7a88', '#d83b4e'];
 
-const initialNodes: Node<MindNodeData>[] = [
+const initialNodes: MindFlowNode[] = [
   {
     id: 'root',
     type: 'mind',
@@ -41,7 +41,7 @@ const initialEdges: Edge[] = [];
 
 const nodeTypes = {
   mind: MindMapNode
-};
+} as const;
 
 function getParentId(nodeId: string, edges: Edge[]): string | null {
   return edges.find((edge) => edge.target === nodeId)?.source ?? null;
@@ -51,7 +51,7 @@ function getChildrenOf(parentId: string, edges: Edge[]): string[] {
   return edges.filter((edge) => edge.source === parentId).map((edge) => edge.target);
 }
 
-function getTraversalOrder(nodes: Node<MindNodeData>[], edges: Edge[]): string[] {
+function getTraversalOrder(nodes: MindFlowNode[], edges: Edge[]): string[] {
   const childrenMap = new Map<string, string[]>();
   const targets = new Set<string>();
 
@@ -98,35 +98,9 @@ function getTraversalOrder(nodes: Node<MindNodeData>[], edges: Edge[]): string[]
   return order;
 }
 
-function collectSubtree(nodeId: string, edges: Edge[]): Set<string> {
-  const childrenMap = new Map<string, string[]>();
-
-  edges.forEach((edge) => {
-    const children = childrenMap.get(edge.source) ?? [];
-    children.push(edge.target);
-    childrenMap.set(edge.source, children);
-  });
-
-  const targets = new Set<string>();
-  const queue = [nodeId];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || targets.has(current)) {
-      continue;
-    }
-
-    targets.add(current);
-    const children = childrenMap.get(current) ?? [];
-    children.forEach((child) => queue.push(child));
-  }
-
-  return targets;
-}
-
 function computeNewChildPosition(
   parentId: string,
-  nodes: Node<MindNodeData>[],
+  nodes: MindFlowNode[],
   edges: Edge[],
   direction: 'left' | 'right'
 ): { x: number; y: number } {
@@ -137,7 +111,7 @@ function computeNewChildPosition(
 
   const children = getChildrenOf(parentId, edges)
     .map((childId) => nodes.find((node) => node.id === childId))
-    .filter((node): node is Node<MindNodeData> => Boolean(node))
+    .filter((node): node is MindFlowNode => Boolean(node))
     .sort((a, b) => a.position.y - b.position.y);
 
   const sign = direction === 'left' ? -1 : 1;
@@ -150,7 +124,7 @@ function computeNewChildPosition(
   return { x, y };
 }
 
-function createBranchColorLookup(nodes: Node<MindNodeData>[], edges: Edge[]): Map<string, string> {
+function createBranchColorLookup(nodes: MindFlowNode[], edges: Edge[]): Map<string, string> {
   const targets = new Set(edges.map((edge) => edge.target));
   const root = nodes.find((node) => !targets.has(node.id)) ?? nodes[0];
   const lookup = new Map<string, string>();
@@ -163,7 +137,7 @@ function createBranchColorLookup(nodes: Node<MindNodeData>[], edges: Edge[]): Ma
 
   const rootChildren = getChildrenOf(root.id, edges)
     .map((id) => nodes.find((node) => node.id === id))
-    .filter((node): node is Node<MindNodeData> => Boolean(node))
+    .filter((node): node is MindFlowNode => Boolean(node))
     .sort((a, b) => a.position.y - b.position.y);
 
   const parentByNode = new Map<string, string>();
@@ -198,22 +172,22 @@ function createBranchColorLookup(nodes: Node<MindNodeData>[], edges: Edge[]): Ma
   return lookup;
 }
 
+function getRootId(nodes: MindFlowNode[], edges: Edge[]): string | null {
+  const targets = new Set(edges.map((edge) => edge.target));
+  return (nodes.find((node) => !targets.has(node.id)) ?? nodes[0])?.id ?? null;
+}
+
 export default function MindMapEditor({
-  nodes: externalNodes,
-  edges: externalEdges,
-  graphVersion,
   onSnapshotReady,
   onStateChange,
   onExportPng,
   onExportDoc
 }: MindMapEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState<MindNodeData>(
-    externalNodes.length > 0 ? externalNodes : initialNodes
-  );
-  const [edges, setEdges, onEdgesChange] = useEdgesState(externalEdges.length > 0 ? externalEdges : initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
-  const [visualStyle, setVisualStyle] = useState<MindVisualStyle>('boxed');
+  const [visualStyle, setVisualStyle] = useState<MindVisualStyle>('branch');
   const [growthDirection, setGrowthDirection] = useState<'left' | 'right'>('right');
   const [showHelp, setShowHelp] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -222,23 +196,6 @@ export default function MindMapEditor({
   useEffect(() => {
     onSnapshotReady(canvasRef.current);
   }, [onSnapshotReady]);
-
-  useEffect(() => {
-    if (graphVersion === 0) {
-      return;
-    }
-
-    if (externalNodes.length === 0) {
-      setNodes(initialNodes);
-      setEdges(initialEdges);
-    } else {
-      setNodes(externalNodes);
-      setEdges(externalEdges);
-    }
-
-    setEditingNodeId(null);
-    setPendingFocusNodeId(null);
-  }, [externalEdges, externalNodes, graphVersion, setEdges, setNodes]);
 
   useEffect(() => {
     editorRef.current?.focus();
@@ -314,6 +271,9 @@ export default function MindMapEditor({
         )
       );
       setEditingNodeId((current) => (current === nodeId ? null : current));
+      window.setTimeout(() => {
+        editorRef.current?.focus();
+      }, 0);
     },
     [setNodes]
   );
@@ -342,7 +302,7 @@ export default function MindMapEditor({
       const newId = `node-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const position = computeNewChildPosition(parentId, nodes, edges, growthDirection);
 
-      const newNode: Node<MindNodeData> = {
+      const newNode: MindFlowNode = {
         id: newId,
         type: 'mind',
         selected: true,
@@ -351,7 +311,7 @@ export default function MindMapEditor({
       };
 
       setNodes((currentNodes) =>
-        currentNodes.map((node) => ({ ...node, selected: false })).concat(newNode)
+        [...currentNodes.map((node) => ({ ...node, selected: false as const })), newNode]
       );
       setEdges((currentEdges) =>
         currentEdges.concat({
@@ -388,12 +348,33 @@ export default function MindMapEditor({
     }
 
     const parentId = getParentId(selectedNodeId, edges);
-    const subtree = collectSubtree(selectedNodeId, edges);
+    const childIds = edges
+      .filter((edge) => edge.source === selectedNodeId)
+      .map((edge) => edge.target);
 
-    const nextNodes = nodes.filter((node) => !subtree.has(node.id));
-    const nextEdges = edges.filter(
-      (edge) => !subtree.has(edge.source) && !subtree.has(edge.target)
+    const nextNodes = nodes.filter((node) => node.id !== selectedNodeId);
+    const baseEdges = edges.filter(
+      (edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId
     );
+
+    const adoptedEdges =
+      parentId === null
+        ? []
+        : childIds
+            .filter(
+              (childId) =>
+                !baseEdges.some((edge) => edge.source === parentId && edge.target === childId)
+            )
+            .map(
+              (childId): Edge => ({
+                id: `${parentId}-${childId}`,
+                source: parentId,
+                target: childId,
+                type: 'smoothstep'
+              })
+            );
+
+    const nextEdges = [...baseEdges, ...adoptedEdges];
 
     setNodes(
       nextNodes.map((node) => ({
@@ -424,6 +405,36 @@ export default function MindMapEditor({
     [edges, nodes, selectNode, selectedNodeId]
   );
 
+  const resetMindMap = useCallback(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+    setEditingNodeId('root');
+    setPendingFocusNodeId('root');
+    setShowHelp(false);
+  }, [setEdges, setNodes]);
+
+  const organizeMap = useCallback(() => {
+    if (nodes.length === 0) {
+      return;
+    }
+
+    const rootId = getRootId(nodes, edges);
+    const keepSelectedId = selectedNodeId ?? rootId;
+
+    const arranged = positionTree(nodes, edges).map((node) => ({
+      ...node,
+      position: {
+        x: growthDirection === 'left' ? 40 - node.position.x : 40 + node.position.x,
+        y: 40 + node.position.y
+      },
+      selected: node.id === keepSelectedId
+    }));
+
+    setNodes(arranged);
+    setEditingNodeId(null);
+    setPendingFocusNodeId(null);
+  }, [edges, growthDirection, nodes, selectedNodeId, setNodes]);
+
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
@@ -443,6 +454,18 @@ export default function MindMapEditor({
         } else {
           onExportPng();
         }
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        resetMindMap();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        organizeMap();
         return;
       }
 
@@ -492,7 +515,17 @@ export default function MindMapEditor({
         moveSelection(-1);
       }
     },
-    [addChild, addSibling, moveSelection, onExportDoc, onExportPng, removeSelected, selectedNodeId]
+    [
+      addChild,
+      addSibling,
+      moveSelection,
+      onExportDoc,
+      onExportPng,
+      organizeMap,
+      removeSelected,
+      resetMindMap,
+      selectedNodeId
+    ]
   );
 
   useEffect(() => {
@@ -501,11 +534,12 @@ export default function MindMapEditor({
 
   const colorLookup = useMemo(() => createBranchColorLookup(nodes, edges), [edges, nodes]);
 
-  const displayNodes = useMemo(
+  const displayNodes = useMemo<MindFlowNode[]>(
     () =>
       nodes.map((node) => ({
         ...node,
-        type: 'mind',
+        type: 'mind' as const,
+        selected: node.selected ?? false,
         data: {
           ...node.data,
           editing: editingNodeId === node.id,
@@ -529,8 +563,9 @@ export default function MindMapEditor({
       const edgeColor = colorLookup.get(edge.target) ?? '#1f5ce1';
       return {
         ...edge,
-        type: isBranch ? 'bezier' : 'smoothstep',
+        type: isBranch ? 'default' : 'smoothstep',
         animated: false,
+        pathOptions: isBranch ? undefined : { borderRadius: 14, offset: 20 },
         style: {
           stroke: edgeColor,
           strokeWidth: isBranch ? 3 : 2
@@ -542,62 +577,15 @@ export default function MindMapEditor({
   return (
     <div className="editor-shell" onKeyDown={handleEditorKeyDown} tabIndex={0} ref={editorRef}>
       <div className="toolbar">
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedNodeId) {
-              addChild(selectedNodeId, true);
-            }
-          }}
-        >
-          Add Child (Enter)
+        <button type="button" onClick={resetMindMap}>
+          New Mind Map
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedNodeId) {
-              addSibling(selectedNodeId, true);
-            }
-          }}
-        >
-          Add Sibling (Tab)
+        <button type="button" onClick={organizeMap}>
+          Organize
         </button>
         <button type="button" onClick={() => setShowHelp((current) => !current)} aria-label="Help">
           ?
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedNodeId) {
-              setEditingNodeId(selectedNodeId);
-            }
-          }}
-        >
-          Rename (F2)
-        </button>
-        <button type="button" onClick={removeSelected}>
-          Delete (Del)
-        </button>
-        <label className="toolbar-field">
-          Style
-          <select
-            value={visualStyle}
-            onChange={(event) => setVisualStyle(event.target.value as MindVisualStyle)}
-          >
-            <option value="boxed">Boxed</option>
-            <option value="branch">Branch</option>
-          </select>
-        </label>
-        <label className="toolbar-field">
-          Growth
-          <select
-            value={growthDirection}
-            onChange={(event) => setGrowthDirection(event.target.value as 'left' | 'right')}
-          >
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-          </select>
-        </label>
       </div>
       {showHelp ? (
         <div className="shortcut-popover" role="dialog" aria-label="Keyboard shortcuts">
@@ -605,14 +593,37 @@ export default function MindMapEditor({
           <span><code>Enter</code>: Add child</span>
           <span><code>Tab</code>: Add sibling</span>
           <span><code>F2</code> or <code>Ctrl/Cmd+E</code>: Rename</span>
-          <span><code>Delete</code>/<code>Backspace</code>: Delete selected subtree</span>
+          <span><code>Delete</code>/<code>Backspace</code>: Delete selected node</span>
           <span><code>ArrowUp</code>/<code>ArrowDown</code>: Move selection</span>
           <span><code>Ctrl/Cmd+S</code>: Export PNG</span>
           <span><code>Ctrl/Cmd+Shift+S</code>: Export Google Doc</span>
+          <span><code>Ctrl/Cmd+N</code>: New mind map</span>
+          <span><code>Ctrl/Cmd+L</code>: Organize map</span>
+          <strong>View</strong>
+          <label className="toolbar-field">
+            Style
+            <select
+              value={visualStyle}
+              onChange={(event) => setVisualStyle(event.target.value as MindVisualStyle)}
+            >
+              <option value="boxed">Boxed</option>
+              <option value="branch">Branch</option>
+            </select>
+          </label>
+          <label className="toolbar-field">
+            Growth
+            <select
+              value={growthDirection}
+              onChange={(event) => setGrowthDirection(event.target.value as 'left' | 'right')}
+            >
+              <option value="right">Right</option>
+              <option value="left">Left</option>
+            </select>
+          </label>
         </div>
       ) : null}
       <div className="editor-canvas" ref={canvasRef}>
-        <ReactFlow
+        <ReactFlow<MindFlowNode, Edge>
           nodes={displayNodes}
           edges={displayEdges}
           onNodesChange={onNodesChange}

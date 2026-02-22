@@ -1,43 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Edge, Node } from '@xyflow/react';
 import MindMapEditor from './components/MindMapEditor';
 import { dataUrlToBlob, downloadDataUrl, exportMindMapToPng } from './lib/export';
 import { exportToGoogleDoc } from './lib/googleDocs';
-import { buildOutline, outlineToGraph, outlineToText, parseOutlineText } from './lib/outline';
+import { buildOutline, outlineToText } from './lib/outline';
 import type { MindNodeData } from './types';
+
+type MindFlowNode = Node<MindNodeData, 'mind'>;
 
 export default function App() {
   const [title, setTitle] = useState('Mind Map');
-  const [nodes, setNodes] = useState<Node<MindNodeData>[]>([]);
+  const [nodes, setNodes] = useState<MindFlowNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [snapshotElement, setSnapshotElement] = useState<HTMLElement | null>(null);
   const [status, setStatus] = useState('Ready');
   const [docUrl, setDocUrl] = useState('');
-  const [outlineDraft, setOutlineDraft] = useState('');
-  const [outlineFocused, setOutlineFocused] = useState(false);
-  const [externalGraphVersion, setExternalGraphVersion] = useState(0);
 
   const outline = useMemo(() => buildOutline(nodes, edges), [nodes, edges]);
-
-  useEffect(() => {
-    if (!outlineFocused) {
-      setOutlineDraft(outline.length > 0 ? outlineToText(outline) : '- Central Idea');
-    }
-  }, [outline, outlineFocused]);
-
-  const handleOutlineChange = (nextText: string) => {
-    setOutlineDraft(nextText);
-
-    const parsed = parseOutlineText(nextText);
-    if (parsed.length === 0) {
-      return;
-    }
-
-    const graph = outlineToGraph(parsed);
-    setNodes(graph.nodes);
-    setEdges(graph.edges);
-    setExternalGraphVersion((current) => current + 1);
-  };
 
   const handleExportPng = async () => {
     if (!snapshotElement) {
@@ -103,9 +82,6 @@ export default function App() {
       <main className="workspace">
         <section className="canvas-panel">
           <MindMapEditor
-            nodes={nodes}
-            edges={edges}
-            graphVersion={externalGraphVersion}
             onSnapshotReady={setSnapshotElement}
             onExportPng={handleExportPng}
             onExportDoc={handleExportGoogleDoc}
@@ -118,14 +94,7 @@ export default function App() {
 
         <aside className="outline-panel">
           <h2>Outline</h2>
-          <textarea
-            className="outline-input"
-            value={outlineDraft}
-            onFocus={() => setOutlineFocused(true)}
-            onBlur={() => setOutlineFocused(false)}
-            onChange={(event) => handleOutlineChange(event.target.value)}
-            spellCheck={false}
-          />
+          <pre>{outline.length > 0 ? outlineToText(outline) : 'Add topics to build your outline.'}</pre>
           <p className="status">{status}</p>
           {docUrl ? (
             <a href={docUrl} target="_blank" rel="noreferrer">

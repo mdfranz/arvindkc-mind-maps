@@ -4,10 +4,10 @@ import type { MindNodeData } from '../types';
 const X_STEP = 280;
 const Y_STEP = 120;
 
-export function positionTree(
-  nodes: Node<MindNodeData>[],
+export function positionTree<T extends Node<MindNodeData>>(
+  nodes: T[],
   edges: Edge[]
-): Node<MindNodeData>[] {
+): T[] {
   const childrenMap = new Map<string, string[]>();
 
   edges.forEach((edge) => {
@@ -23,7 +23,7 @@ export function positionTree(
     return nodes;
   }
 
-  const nextNodes = nodes.map((node) => ({ ...node }));
+  const nextNodes = nodes.map((node) => ({ ...node })) as T[];
   const nextNodeMap = new Map(nextNodes.map((node) => [node.id, node]));
   const visited = new Set<string>();
   let row = 0;
