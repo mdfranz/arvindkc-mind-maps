@@ -38,6 +38,12 @@ npm install
 npm run dev
 ```
 
+## Testing
+
+```bash
+npm test
+```
+
 ## License
 
-MIT. See `/Users/kc/dev/mymind/LICENSE`.
+MIT. See `LICENSE`.
