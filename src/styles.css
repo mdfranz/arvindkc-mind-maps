@@ -271,15 +271,16 @@ button.primary {
 }
 
 .vault-item {
-  border: 1px solid #d9e1f0;
-  border-radius: 12px;
-  padding: 0.3rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.25rem 0.35rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
   position: relative;
   cursor: pointer;
+  background: transparent;
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
@@ -297,19 +298,21 @@ button.primary {
 }
 
 .vault-item:hover {
-  border-color: #bdc9e1;
-  background: #fbfcff;
+  border-color: transparent;
+  background: rgba(31, 92, 225, 0.06);
 }
 
 .vault-item:focus-visible {
   outline: none;
-  border-color: #1f5ce1;
-  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.18);
+  border-color: transparent;
+  box-shadow: none;
+  background: rgba(31, 92, 225, 0.08);
 }
 
 .vault-item.is-selected {
-  border-color: #1f5ce1;
-  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.12);
+  border-color: transparent;
+  box-shadow: none;
+  background: rgba(31, 92, 225, 0.1);
 }
 
 .vault-main {
@@ -335,16 +338,27 @@ button.primary {
   color: #1f5ce1;
 }
 
+.vault-name-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.14);
+}
+
 .vault-delete-btn {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
   padding: 0;
-  border-radius: 8px;
-  border-color: #d7deec;
-  color: #6a7797;
-  font-size: 1rem;
+  border-radius: 6px;
+  border-color: transparent;
+  background: transparent;
+  color: #8290ae;
+  font-size: 0.95rem;
   line-height: 1;
+}
+
+.vault-delete-btn:hover {
+  color: #4f5d7c;
+  background: rgba(31, 92, 225, 0.08);
 }
 
 .vault-main .vault-title {
@@ -354,9 +368,10 @@ button.primary {
 }
 
 .vault-rename {
-  border: 1px solid #1f5ce1;
-  border-radius: 8px;
-  padding: 0.2rem 0.35rem;
+  border: none;
+  border-bottom: 1px solid rgba(31, 92, 225, 0.5);
+  border-radius: 0;
+  padding: 0.15rem 0.1rem;
   font-size: 0.95rem;
   font-weight: 700;
   color: #23314f;
@@ -365,7 +380,8 @@ button.primary {
 
 .vault-rename:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.18);
+  border-bottom-color: #1f5ce1;
+  box-shadow: none;
 }
 
 .center-panel {

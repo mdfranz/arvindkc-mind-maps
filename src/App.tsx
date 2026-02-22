@@ -131,15 +131,21 @@ export default function App() {
       return;
     }
 
+    if (renameMapId && renameMapId === selectedMapId) {
+      return;
+    }
+
     if (autosaveTimeoutRef.current) {
       window.clearTimeout(autosaveTimeoutRef.current);
     }
 
     autosaveTimeoutRef.current = window.setTimeout(() => {
       const id = selectedMapId ?? crypto.randomUUID();
+      const selectedSavedMap = savedMaps.find((item) => item.id === id);
+      const effectiveTitle = selectedSavedMap?.title ?? (title.trim() || 'Untitled Mind Map');
       const map: StoredMindMap = {
         id,
-        title: title.trim() || 'Untitled Mind Map',
+        title: effectiveTitle,
         updatedAt: new Date().toISOString(),
         nodes,
         edges
@@ -159,7 +165,7 @@ export default function App() {
         window.clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [edges, nodes, selectedMapId, title]);
+  }, [edges, nodes, renameMapId, savedMaps, selectedMapId, title]);
 
   const handleExportPng = async () => {
     if (!snapshotElement) {
@@ -188,7 +194,12 @@ export default function App() {
     setStatus('Started new mind map. Previous maps stay in local storage.');
   };
 
-  const loadSavedMap = (map: StoredMindMap) => {
+  const loadSavedMapById = (mapId: string) => {
+    const map = savedMaps.find((item) => item.id === mapId);
+    if (!map) {
+      return;
+    }
+
     setLoadGraph({ nodes: map.nodes, edges: map.edges });
     setLoadVersion((current) => current + 1);
     setSelectedMapId(map.id);
@@ -241,7 +252,11 @@ export default function App() {
 
     if (selectedMapId === mapId) {
       if (remaining.length > 0) {
-        loadSavedMap(remaining[0]);
+        setLoadGraph({ nodes: remaining[0].nodes, edges: remaining[0].edges });
+        setLoadVersion((current) => current + 1);
+        setSelectedMapId(remaining[0].id);
+        setTitle(remaining[0].title);
+        setStatus(`Loaded map: ${remaining[0].title}`);
       } else {
         createNewMap();
       }
@@ -329,11 +344,19 @@ export default function App() {
                     className={`vault-item ${selectedMapId === map.id ? 'is-selected' : ''}`}
                     role="button"
                     tabIndex={0}
-                    onClick={() => loadSavedMap(map)}
+                    onClick={() => {
+                      if (renameMapId === map.id) {
+                        return;
+                      }
+                      loadSavedMapById(map.id);
+                    }}
                     onKeyDown={(event) => {
+                      if (renameMapId === map.id) {
+                        return;
+                      }
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        loadSavedMap(map);
+                        loadSavedMapById(map.id);
                       }
                     }}
                   >
@@ -347,6 +370,7 @@ export default function App() {
                           onClick={(event) => event.stopPropagation()}
                           onBlur={() => commitRenameMap(map.id)}
                           onKeyDown={(event) => {
+                            event.stopPropagation();
                             if (event.key === 'Enter') {
                               event.preventDefault();
                               commitRenameMap(map.id);
