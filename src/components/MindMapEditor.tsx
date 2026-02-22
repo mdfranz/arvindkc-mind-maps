@@ -24,6 +24,7 @@ type MindMapEditorProps = {
   onSnapshotReady: (container: HTMLElement | null) => void;
   onStateChange: (nodes: MindFlowNode[], edges: Edge[]) => void;
   onExportPng: () => void;
+  focusOnLoad?: boolean;
 };
 
 const BRANCH_COLORS = ['#1f5ce1', '#03a66a', '#c26000', '#ab47bc', '#0d7a88', '#d83b4e'];
@@ -159,7 +160,8 @@ export default function MindMapEditor({
   onCreateNewMap,
   onSnapshotReady,
   onStateChange,
-  onExportPng
+  onExportPng,
+  focusOnLoad = true
 }: MindMapEditorProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -371,10 +373,12 @@ export default function MindMapEditor({
     setEdges(arrangedEdges);
     setEditingNodeId(null);
     setPendingFocusNodeId(null);
-    window.setTimeout(() => {
-      editorRef.current?.focus();
-    }, 0);
-  }, [applyLayout, loadGraph, loadVersion, setEdges, setNodes]);
+    if (focusOnLoad) {
+      window.setTimeout(() => {
+        editorRef.current?.focus();
+      }, 0);
+    }
+  }, [applyLayout, loadGraph, loadVersion, setEdges, setNodes, focusOnLoad]);
 
   const addSibling = useCallback(
     (nodeId: string, startEditing: boolean) => {

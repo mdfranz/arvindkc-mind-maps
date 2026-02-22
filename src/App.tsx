@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Edge, Node } from '@xyflow/react';
 import MindMapEditor from './components/MindMapEditor';
 import { downloadDataUrl, exportMindMapToPng } from './lib/export';
 import { loadLocalMaps, saveLocalMaps, type StoredMindMap } from './lib/localStore';
-import { buildOutline, outlineToText } from './lib/outline';
+import { buildOutline, outlineToText, parseOutlineText, outlineToGraph } from './lib/outline';
 import type { MindNodeData } from './types';
 
 type MindFlowNode = Node<MindNodeData, 'mind'>;
@@ -84,11 +84,31 @@ export default function App() {
   const [renameDraft, setRenameDraft] = useState('');
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  const [outlineDraft, setOutlineDraft] = useState('');
+  const [isOutlineFocused, setIsOutlineFocused] = useState(false);
+  const [focusOnLoad, setFocusOnLoad] = useState(true);
+
   const hydratedRef = useRef(false);
   const autosaveTimeoutRef = useRef<number | null>(null);
 
-  const outline = useMemo(() => buildOutline(nodes, edges), [nodes, edges]);
-  const outlineMarkdown = useMemo(() => (outline.length > 0 ? outlineToText(outline) : '- Central Idea'), [outline]);
+  useEffect(() => {
+    if (!isOutlineFocused) {
+      const outline = buildOutline(nodes, edges);
+      setOutlineDraft(outline.length > 0 ? outlineToText(outline) : '- Central Idea');
+    }
+  }, [nodes, edges, isOutlineFocused]);
+
+  const handleOutlineChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = event.target.value;
+    setOutlineDraft(text);
+    
+    const parsed = parseOutlineText(text);
+    const graph = outlineToGraph(parsed);
+    
+    setFocusOnLoad(false);
+    setLoadGraph(graph);
+    setLoadVersion((current) => current + 1);
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -200,6 +220,7 @@ export default function App() {
       return;
     }
 
+    setFocusOnLoad(true);
     setLoadGraph({ nodes: map.nodes, edges: map.edges });
     setLoadVersion((current) => current + 1);
     setSelectedMapId(map.id);
@@ -252,6 +273,7 @@ export default function App() {
 
     if (selectedMapId === mapId) {
       if (remaining.length > 0) {
+        setFocusOnLoad(true);
         setLoadGraph({ nodes: remaining[0].nodes, edges: remaining[0].edges });
         setLoadVersion((current) => current + 1);
         setSelectedMapId(remaining[0].id);
@@ -267,7 +289,7 @@ export default function App() {
 
   const copyOutline = async () => {
     try {
-      await navigator.clipboard.writeText(outlineMarkdown);
+      await navigator.clipboard.writeText(outlineDraft);
       setStatus('Outline copied as Markdown.');
     } catch {
       setStatus('Unable to copy outline in this browser context.');
@@ -454,7 +476,11 @@ export default function App() {
             loadGraph={loadGraph}
             loadVersion={loadVersion}
             organizeVersion={organizeVersion}
-            onCreateNewMap={() => void createNewMap()}
+            focusOnLoad={focusOnLoad}
+            onCreateNewMap={() => {
+              setFocusOnLoad(true);
+              void createNewMap();
+            }}
             onSnapshotReady={setSnapshotElement}
             onExportPng={handleExportPng}
             onStateChange={(nextNodes, nextEdges) => {
@@ -497,7 +523,15 @@ export default function App() {
                   ⧉
                 </button>
               </div>
-              <pre>{outlineMarkdown}</pre>
+              <textarea
+                className="outline-editor"
+                value={outlineDraft}
+                onChange={handleOutlineChange}
+                onFocus={() => setIsOutlineFocused(true)}
+                onBlur={() => setIsOutlineFocused(false)}
+                aria-label="Edit Markdown Outline"
+                spellCheck={false}
+              />
               <p className="status">{status}</p>
             </div>
           ) : null}

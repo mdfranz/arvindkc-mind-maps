@@ -153,10 +153,12 @@ button.primary {
 
 .side-content {
   padding: 0.85rem;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.65rem;
   min-height: 0;
   overflow: auto;
+  flex: 1;
 }
 
 .left-actions {
@@ -251,9 +253,9 @@ button.primary {
   color: #23314f;
 }
 
-.right-panel pre {
+.outline-editor {
   margin: 0;
-  min-height: 0;
+  min-height: 75vh;
   flex: 1;
   overflow: auto;
   border: 1px solid #dae2f0;
@@ -262,6 +264,17 @@ button.primary {
   background: #f8faff;
   font-family: var(--font-mono);
   white-space: pre-wrap;
+  resize: none;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.outline-editor:focus {
+  outline: none;
+  border-color: #1f5ce1;
+  box-shadow: 0 0 0 2px rgba(31, 92, 225, 0.2);
 }
 
 .outline-head {
