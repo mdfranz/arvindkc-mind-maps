@@ -1,5 +1,5 @@
 import type { Edge, Node } from '@xyflow/react';
-import type { MindBranchSide, MindNodeData } from '../types';
+import type { MindBranchSide, MindNodeModelData } from '../types';
 
 const BASE_X_STEP = 240;
 const Y_STEP = 108;
@@ -16,7 +16,7 @@ type BranchCounts = {
   right: number;
 };
 
-function getRootId<T extends Node<MindNodeData>>(nodes: T[], edges: Edge[]): string | null {
+function getRootId<T extends Node<MindNodeModelData>>(nodes: T[], edges: Edge[]): string | null {
   const targets = new Set(edges.map((edge) => edge.target));
   return (nodes.find((node) => !targets.has(node.id)) ?? nodes[0])?.id ?? null;
 }
@@ -31,7 +31,7 @@ function getChildrenMap(edges: Edge[]): Map<string, string[]> {
   return childrenMap;
 }
 
-function getNodeMap<T extends Node<MindNodeData>>(nodes: T[]): Map<string, T> {
+function getNodeMap<T extends Node<MindNodeModelData>>(nodes: T[]): Map<string, T> {
   return new Map(nodes.map((node) => [node.id, node]));
 }
 
@@ -119,7 +119,7 @@ function computeXStep(
   return BASE_X_STEP;
 }
 
-function placeSubtree<T extends Node<MindNodeData>>(
+function placeSubtree<T extends Node<MindNodeModelData>>(
   nodeId: string,
   parentX: number,
   centerY: number,
@@ -171,7 +171,7 @@ function placeSubtree<T extends Node<MindNodeData>>(
   });
 }
 
-export function chooseRootChildSide<T extends Node<MindNodeData>>(
+export function chooseRootChildSide<T extends Node<MindNodeModelData>>(
   parentId: string,
   nodes: T[],
   edges: Edge[],
@@ -210,7 +210,7 @@ export function chooseRootChildSide<T extends Node<MindNodeData>>(
   return sideLoads.left <= sideLoads.right ? 'left' : 'right';
 }
 
-export function positionTree<T extends Node<MindNodeData>>(
+export function positionTree<T extends Node<MindNodeModelData>>(
   nodes: T[],
   edges: Edge[],
   options?: LayoutOptions

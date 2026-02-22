@@ -1,8 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
 import { positionTree } from './layout';
-import type { MindNodeData, OutlineItem } from '../types';
+import type { MindNodeModelData, OutlineItem } from '../types';
 
-type MindFlowNode = Node<MindNodeData, 'mind'>;
+type MindFlowNode = Node<MindNodeModelData, 'mind'>;
 
 export function buildOutline(nodes: MindFlowNode[], edges: Edge[]): OutlineItem[] {
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));

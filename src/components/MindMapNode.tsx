@@ -2,38 +2,39 @@ import { memo, useEffect, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { Node, NodeProps } from '@xyflow/react';
-import type { MindNodeData } from '../types';
+import type { MindNodeModelData, MindNodeViewData } from '../types';
 
-type MindFlowNode = Node<MindNodeData, 'mind'>;
+type MindModelNode = Node<MindNodeModelData, 'mind'>;
 
-function MindMapNode({ id, data, selected }: NodeProps<MindFlowNode>) {
+function MindMapNode({ id, data, selected }: NodeProps<MindModelNode>) {
+  const viewData = data as MindNodeViewData;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!data.editing) {
+    if (!viewData.editing) {
       return;
     }
 
     inputRef.current?.focus();
     inputRef.current?.select();
-  }, [data.editing]);
+  }, [viewData.editing]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      data.onCommitEdit?.(id);
+      viewData.onCommitEdit?.(id);
       return;
     }
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      data.onCommitEdit?.(id);
+      viewData.onCommitEdit?.(id);
     }
   };
 
-  const isBranch = data.visualStyle === 'branch';
-  const color = data.color ?? '#1f5ce1';
-  const side = data.side ?? 'right';
+  const isBranch = viewData.visualStyle === 'branch';
+  const color = viewData.color ?? '#1f5ce1';
+  const side = viewData.side ?? 'right';
 
   const nodeStyle = {
     '--mind-color': color
@@ -74,24 +75,24 @@ function MindMapNode({ id, data, selected }: NodeProps<MindFlowNode>) {
       style={nodeStyle}
     >
       {renderHandles()}
-      {data.editing ? (
+      {viewData.editing ? (
         <input
           ref={inputRef}
           data-node-input-id={id}
           autoFocus
           className={`mind-node-input nodrag ${isBranch ? 'is-branch' : ''}`}
-          value={data.label}
-          onChange={(event) => data.onChangeLabel?.(id, event.target.value)}
-          onBlur={() => data.onCommitEdit?.(id)}
+          value={viewData.label}
+          onChange={(event) => viewData.onChangeLabel?.(id, event.target.value)}
+          onBlur={() => viewData.onCommitEdit?.(id)}
           onKeyDown={handleKeyDown}
         />
       ) : (
         <button
           type="button"
           className={`mind-node-label ${isBranch ? 'is-branch' : ''}`}
-          onDoubleClick={() => data.onStartEdit?.(id)}
+          onDoubleClick={() => viewData.onStartEdit?.(id)}
         >
-          {data.label}
+          {viewData.label}
         </button>
       )}
     </div>

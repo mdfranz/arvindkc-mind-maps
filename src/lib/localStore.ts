@@ -1,10 +1,10 @@
 import type { Edge, Node } from '@xyflow/react';
-import type { MindNodeData } from '../types';
+import type { MindNodeModelData } from '../types';
 
 const STORAGE_KEY = 'mymind.vault.v2';
 const KEY_KEY = 'mymind.vault.key.v2';
 
-type MindFlowNode = Node<MindNodeData, 'mind'>;
+type MindFlowNode = Node<MindNodeModelData, 'mind'>;
 
 export type StoredMindMap = {
   id: string;

@@ -4,9 +4,9 @@ import MindMapEditor from './components/MindMapEditor';
 import { downloadDataUrl, exportMindMapToPng } from './lib/export';
 import { loadLocalMaps, saveLocalMaps, type StoredMindMap } from './lib/localStore';
 import { buildOutline, outlineToText, parseOutlineText, outlineToGraph } from './lib/outline';
-import type { MindNodeData } from './types';
+import type { MindNodeModelData } from './types';
 
-type MindFlowNode = Node<MindNodeData, 'mind'>;
+type MindFlowNode = Node<MindNodeModelData, 'mind'>;
 
 function createEmptyMap(): { nodes: MindFlowNode[]; edges: Edge[] } {
   return {
