@@ -611,6 +611,7 @@ export default function MindMapEditor({
           edges={displayEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          deleteKeyCode={null}
           onConnect={(connection) => {
             setEdges((currentEdges) => addEdge(connection, currentEdges));
           }}
