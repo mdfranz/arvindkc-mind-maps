@@ -17,6 +17,10 @@ import type { MindNodeData, MindVisualStyle } from '../types';
 type MindFlowNode = Node<MindNodeData, 'mind'>;
 
 type MindMapEditorProps = {
+  loadGraph: { nodes: MindFlowNode[]; edges: Edge[] } | null;
+  loadVersion: number;
+  organizeVersion: number;
+  onCreateNewMap: () => void;
   onSnapshotReady: (container: HTMLElement | null) => void;
   onStateChange: (nodes: MindFlowNode[], edges: Edge[]) => void;
   onExportPng: () => void;
@@ -178,6 +182,10 @@ function getRootId(nodes: MindFlowNode[], edges: Edge[]): string | null {
 }
 
 export default function MindMapEditor({
+  loadGraph,
+  loadVersion,
+  organizeVersion,
+  onCreateNewMap,
   onSnapshotReady,
   onStateChange,
   onExportPng,
@@ -187,9 +195,8 @@ export default function MindMapEditor({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
-  const [visualStyle, setVisualStyle] = useState<MindVisualStyle>('branch');
-  const [growthDirection, setGrowthDirection] = useState<'left' | 'right'>('right');
-  const [showHelp, setShowHelp] = useState(false);
+  const [visualStyle] = useState<MindVisualStyle>('branch');
+  const [growthDirection] = useState<'left' | 'right'>('right');
   const editorRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -200,6 +207,23 @@ export default function MindMapEditor({
   useEffect(() => {
     editorRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (loadVersion === 0 || !loadGraph) {
+      return;
+    }
+
+    const nextNodes = loadGraph.nodes.length > 0 ? loadGraph.nodes : initialNodes;
+    const nextEdges = loadGraph.edges;
+
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+    setEditingNodeId(null);
+    setPendingFocusNodeId(null);
+    window.setTimeout(() => {
+      editorRef.current?.focus();
+    }, 0);
+  }, [loadGraph, loadVersion, setEdges, setNodes]);
 
   useEffect(() => {
     if (!pendingFocusNodeId || editingNodeId !== pendingFocusNodeId) {
@@ -405,14 +429,6 @@ export default function MindMapEditor({
     [edges, nodes, selectNode, selectedNodeId]
   );
 
-  const resetMindMap = useCallback(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-    setEditingNodeId('root');
-    setPendingFocusNodeId('root');
-    setShowHelp(false);
-  }, [setEdges, setNodes]);
-
   const organizeMap = useCallback(() => {
     if (nodes.length === 0) {
       return;
@@ -434,6 +450,14 @@ export default function MindMapEditor({
     setEditingNodeId(null);
     setPendingFocusNodeId(null);
   }, [edges, growthDirection, nodes, selectedNodeId, setNodes]);
+
+  useEffect(() => {
+    if (organizeVersion === 0) {
+      return;
+    }
+
+    organizeMap();
+  }, [organizeMap, organizeVersion]);
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -459,7 +483,7 @@ export default function MindMapEditor({
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
         event.preventDefault();
-        resetMindMap();
+        onCreateNewMap();
         return;
       }
 
@@ -521,9 +545,9 @@ export default function MindMapEditor({
       moveSelection,
       onExportDoc,
       onExportPng,
+      onCreateNewMap,
       organizeMap,
       removeSelected,
-      resetMindMap,
       selectedNodeId
     ]
   );
@@ -576,52 +600,6 @@ export default function MindMapEditor({
 
   return (
     <div className="editor-shell" onKeyDown={handleEditorKeyDown} tabIndex={0} ref={editorRef}>
-      <div className="toolbar">
-        <button type="button" onClick={resetMindMap}>
-          New Mind Map
-        </button>
-        <button type="button" onClick={organizeMap}>
-          Organize
-        </button>
-        <button type="button" onClick={() => setShowHelp((current) => !current)} aria-label="Help">
-          ?
-        </button>
-      </div>
-      {showHelp ? (
-        <div className="shortcut-popover" role="dialog" aria-label="Keyboard shortcuts">
-          <strong>Shortcuts</strong>
-          <span><code>Enter</code>: Add child</span>
-          <span><code>Tab</code>: Add sibling</span>
-          <span><code>F2</code> or <code>Ctrl/Cmd+E</code>: Rename</span>
-          <span><code>Delete</code>/<code>Backspace</code>: Delete selected node</span>
-          <span><code>ArrowUp</code>/<code>ArrowDown</code>: Move selection</span>
-          <span><code>Ctrl/Cmd+S</code>: Export PNG</span>
-          <span><code>Ctrl/Cmd+Shift+S</code>: Export Google Doc</span>
-          <span><code>Ctrl/Cmd+N</code>: New mind map</span>
-          <span><code>Ctrl/Cmd+L</code>: Organize map</span>
-          <strong>View</strong>
-          <label className="toolbar-field">
-            Style
-            <select
-              value={visualStyle}
-              onChange={(event) => setVisualStyle(event.target.value as MindVisualStyle)}
-            >
-              <option value="boxed">Boxed</option>
-              <option value="branch">Branch</option>
-            </select>
-          </label>
-          <label className="toolbar-field">
-            Growth
-            <select
-              value={growthDirection}
-              onChange={(event) => setGrowthDirection(event.target.value as 'left' | 'right')}
-            >
-              <option value="right">Right</option>
-              <option value="left">Left</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
       <div className="editor-canvas" ref={canvasRef}>
         <ReactFlow<MindFlowNode, Edge>
           nodes={displayNodes}

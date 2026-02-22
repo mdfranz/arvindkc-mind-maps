@@ -1,4 +1,4 @@
-# MindMap Doc Exporter
+# My Mind Maps
 
 Browser-based React app for creating a simple mind map and exporting it as:
 - a PNG image
@@ -12,11 +12,11 @@ Browser-based React app for creating a simple mind map and exporting it as:
 - Two visual styles: `Boxed` and `Branch` (node-to-edge style)
 - Growth direction toggle: add new branches to the left or right
 - Live outline preview generated from graph structure
-- Two-way outline sync: editing the outline updates the mind map
 - PNG export of the current mind map view
 - Google Docs export with:
   - map image embedded in the document
   - nested bullet outline
+- Encrypted browser-local storage for multiple mind maps (passphrase-protected)
 
 ## Keyboard Shortcuts
 
@@ -24,10 +24,12 @@ Browser-based React app for creating a simple mind map and exporting it as:
 - `Enter`: add child topic and focus text edit immediately
 - `Tab`: add sibling topic and focus text edit immediately
 - `F2` or `Ctrl/Cmd+E`: rename selected topic inline
-- `Delete` / `Backspace`: delete selected topic subtree (root is protected)
+- `Delete` / `Backspace`: delete selected node (root is protected)
 - `ArrowUp` / `ArrowDown`: move selection across topics
 - `Ctrl/Cmd+S`: export PNG
 - `Ctrl/Cmd+Shift+S`: export Google Doc
+- `Ctrl/Cmd+N`: create a new mind map
+- `Ctrl/Cmd+L`: organize map layout
 
 ## Quick Start
 
