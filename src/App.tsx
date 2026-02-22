@@ -205,6 +205,23 @@ export default function App() {
     }
   };
 
+  const handleExportMarkdown = () => {
+    try {
+      const blob = new Blob([outlineDraft], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${title.replace(/\s+/g, '-').toLowerCase() || 'mindmap'}.md`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus('Markdown downloaded.');
+    } catch (error) {
+      setStatus(
+        `Markdown export failed: ${error instanceof Error ? error.message : 'Unexpected error while exporting.'}`
+      );
+    }
+  };
+
   const createNewMap = () => {
     const empty = createEmptyMap();
     setLoadGraph(empty);
@@ -460,6 +477,20 @@ export default function App() {
             <button
               type="button"
               className="canvas-icon-btn"
+              title="Export Markdown"
+              aria-label="Export Markdown"
+              onClick={handleExportMarkdown}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+                <path d="M9 14l2-2 2 2" />
+                <path d="M11 12v5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-btn"
               title="Export PNG"
               aria-label="Export PNG"
               onClick={handleExportPng}
@@ -532,11 +563,13 @@ export default function App() {
                 aria-label="Edit Markdown Outline"
                 spellCheck={false}
               />
-              <p className="status">{status}</p>
             </div>
           ) : null}
         </aside>
       </main>
+      <div className="status-bar">
+        <p className="status">{status}</p>
+      </div>
     </div>
   );
 }
