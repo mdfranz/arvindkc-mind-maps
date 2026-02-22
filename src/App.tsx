@@ -301,7 +301,7 @@ export default function App() {
     };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell font-inter">
       <main
         className={`workspace workspace-3col ${leftCollapsed ? 'left-collapsed' : ''} ${
           rightCollapsed ? 'right-collapsed' : ''

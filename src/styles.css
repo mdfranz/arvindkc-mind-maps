@@ -1,9 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-  font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-ui);
   color: #1b1f2a;
   background: radial-gradient(circle at 15% 10%, #dce6ff 0%, #f6f8ff 42%, #f4f7fb 100%);
+}
+
+.app-shell.font-inter {
+  --font-ui: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.app-shell.font-manrope {
+  --font-ui: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.app-shell.font-jakarta {
+  --font-ui: 'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.app-shell.font-work {
+  --font-ui: 'Work Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.app-shell.font-system {
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
 }
 
 * {
@@ -233,7 +260,7 @@ button.primary {
   border-radius: 12px;
   padding: 0.75rem;
   background: #f8faff;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: var(--font-mono);
   white-space: pre-wrap;
 }
 
@@ -334,7 +361,7 @@ button.primary {
   font-weight: 500;
   padding: 0;
   border-radius: 6px;
-  font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .vault-name-btn:hover {
@@ -379,7 +406,7 @@ button.primary {
   font-weight: 500;
   color: #1f2937;
   min-width: 120px;
-  font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .vault-rename:focus {
