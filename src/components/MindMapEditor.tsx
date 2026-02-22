@@ -36,6 +36,7 @@ type MindMapEditorProps = {
 };
 
 const BRANCH_COLORS = ['#1f5ce1', '#03a66a', '#c26000', '#ab47bc', '#0d7a88', '#d83b4e'];
+const DEFAULT_CANVAS = { width: 1200, height: 720 };
 
 const initialNodes: MindModelNode[] = [
   {
@@ -191,8 +192,13 @@ export default function MindMapEditor({
   );
 
   const applyLayout = useCallback(
-    (nextNodes: MindModelNode[], nextEdges: Edge[], selectedId: string | null) => {
-      const { width, height } = canvasRef.current?.getBoundingClientRect() ?? { width: 1200, height: 720 };
+    (
+      nextNodes: MindModelNode[],
+      nextEdges: Edge[],
+      selectedId: string | null,
+      canvas: { width: number; height: number }
+    ) => {
+      const { width, height } = canvas;
       const arrangedNodes = positionTree(nextNodes, nextEdges, {
         centerX: width * 0.5,
         centerY: height * 0.5,
@@ -217,9 +223,17 @@ export default function MindMapEditor({
     [resolveEdgeHandles]
   );
 
+  const getCanvasMetrics = useCallback((): { width: number; height: number } => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return {
+      width: rect?.width ?? DEFAULT_CANVAS.width,
+      height: rect?.height ?? DEFAULT_CANVAS.height
+    };
+  }, []);
+
   const addChild = useCallback(
     (parentId: string, startEditing: boolean) => {
-      const { width, height } = canvasRef.current?.getBoundingClientRect() ?? { width: 1200, height: 720 };
+      const { width, height } = getCanvasMetrics();
       const next = addChildNode({
         nodes,
         edges,
@@ -229,7 +243,10 @@ export default function MindMapEditor({
         createNodeId: () => `node-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
       });
 
-      const { arrangedNodes, arrangedEdges } = applyLayout(next.nodes, next.edges, next.newNodeId);
+      const { arrangedNodes, arrangedEdges } = applyLayout(next.nodes, next.edges, next.newNodeId, {
+        width,
+        height
+      });
       setNodes(arrangedNodes);
       setEdges(arrangedEdges);
 
@@ -238,7 +255,7 @@ export default function MindMapEditor({
         setPendingFocusNodeId(next.newNodeId);
       }
     },
-    [applyLayout, edges, nodes, setEdges, setNodes]
+    [applyLayout, edges, getCanvasMetrics, nodes, setEdges, setNodes]
   );
 
   useEffect(() => {
@@ -246,9 +263,15 @@ export default function MindMapEditor({
       return;
     }
 
+    const canvas = getCanvasMetrics();
     const nextNodes = loadGraph.nodes.length > 0 ? loadGraph.nodes : initialNodes;
     const nextEdges = loadGraph.edges;
-    const { arrangedNodes, arrangedEdges } = applyLayout(nextNodes, nextEdges, getRootId(nextNodes, nextEdges));
+    const { arrangedNodes, arrangedEdges } = applyLayout(
+      nextNodes,
+      nextEdges,
+      getRootId(nextNodes, nextEdges),
+      canvas
+    );
     setNodes(arrangedNodes);
     setEdges(arrangedEdges);
     setEditingNodeId(null);
@@ -258,7 +281,7 @@ export default function MindMapEditor({
         editorRef.current?.focus();
       }, 0);
     }
-  }, [applyLayout, loadGraph, loadVersion, setEdges, setNodes, focusOnLoad]);
+  }, [applyLayout, getCanvasMetrics, loadGraph, loadVersion, setEdges, setNodes, focusOnLoad]);
 
   const addSibling = useCallback(
     (nodeId: string, startEditing: boolean) => {
@@ -278,11 +301,17 @@ export default function MindMapEditor({
     }
 
     const next = removeNodeAndAdoptChildren({ nodes, edges, nodeId: selectedNodeId });
-    const { arrangedNodes, arrangedEdges } = applyLayout(next.nodes, next.edges, next.selectedAfterDeleteId);
+    const canvas = getCanvasMetrics();
+    const { arrangedNodes, arrangedEdges } = applyLayout(
+      next.nodes,
+      next.edges,
+      next.selectedAfterDeleteId,
+      canvas
+    );
     setNodes(arrangedNodes);
     setEdges(arrangedEdges);
     setEditingNodeId(null);
-  }, [applyLayout, edges, nodes, selectedNodeId, setEdges, setNodes]);
+  }, [applyLayout, edges, getCanvasMetrics, nodes, selectedNodeId, setEdges, setNodes]);
 
   const moveSelection = useCallback(
     (delta: 1 | -1) => {
@@ -308,14 +337,15 @@ export default function MindMapEditor({
       return;
     }
 
+    const canvas = getCanvasMetrics();
     const rootId = getRootId(nodes, edges);
     const keepSelectedId = selectedNodeId ?? rootId;
-    const { arrangedNodes, arrangedEdges } = applyLayout(nodes, edges, keepSelectedId);
+    const { arrangedNodes, arrangedEdges } = applyLayout(nodes, edges, keepSelectedId, canvas);
     setNodes(arrangedNodes);
     setEdges(arrangedEdges);
     setEditingNodeId(null);
     setPendingFocusNodeId(null);
-  }, [applyLayout, edges, nodes, selectedNodeId, setEdges, setNodes]);
+  }, [applyLayout, edges, getCanvasMetrics, nodes, selectedNodeId, setEdges, setNodes]);
 
   useEffect(() => {
     if (organizeVersion === 0) {
@@ -331,11 +361,12 @@ export default function MindMapEditor({
     }
 
     didInitialLayoutRef.current = true;
+    const canvas = getCanvasMetrics();
     const rootId = getRootId(nodes, edges);
-    const { arrangedNodes, arrangedEdges } = applyLayout(nodes, edges, rootId);
+    const { arrangedNodes, arrangedEdges } = applyLayout(nodes, edges, rootId, canvas);
     setNodes(arrangedNodes);
     setEdges(arrangedEdges);
-  }, [applyLayout, edges, nodes, setEdges, setNodes]);
+  }, [applyLayout, edges, getCanvasMetrics, nodes, setEdges, setNodes]);
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
