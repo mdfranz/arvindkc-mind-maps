@@ -33,17 +33,47 @@ function MindMapNode({ id, data, selected }: NodeProps<MindFlowNode>) {
 
   const isBranch = data.visualStyle === 'branch';
   const color = data.color ?? '#1f5ce1';
+  const side = data.side ?? 'right';
 
   const nodeStyle = {
     '--mind-color': color
   } as CSSProperties;
+
+  const renderHandles = () => {
+    if (side === 'center') {
+      return (
+        <>
+          <Handle type="source" id="source-left" position={Position.Left} />
+          <Handle type="source" id="source-right" position={Position.Right} />
+          <Handle type="target" id="target-left" position={Position.Left} style={{ opacity: 0, pointerEvents: 'none' }} />
+          <Handle type="target" id="target-right" position={Position.Right} style={{ opacity: 0, pointerEvents: 'none' }} />
+        </>
+      );
+    }
+
+    if (side === 'left') {
+      return (
+        <>
+          <Handle type="target" id="target-right" position={Position.Right} />
+          <Handle type="source" id="source-left" position={Position.Left} />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Handle type="target" id="target-left" position={Position.Left} />
+        <Handle type="source" id="source-right" position={Position.Right} />
+      </>
+    );
+  };
 
   return (
     <div
       className={`mind-node ${selected ? 'is-selected' : ''} ${isBranch ? 'is-branch' : 'is-boxed'}`}
       style={nodeStyle}
     >
-      <Handle type="target" position={Position.Left} />
+      {renderHandles()}
       {data.editing ? (
         <input
           ref={inputRef}
@@ -64,7 +94,6 @@ function MindMapNode({ id, data, selected }: NodeProps<MindFlowNode>) {
           {data.label}
         </button>
       )}
-      <Handle type="source" position={Position.Right} />
     </div>
   );
 }
