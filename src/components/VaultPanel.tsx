@@ -6,18 +6,18 @@ type VaultPanelProps = {
   collapsed: boolean;
   width: number;
   savedMaps: StoredMindMap[];
-  selectedMapId: string | null;
-  renameMapId: string | null;
+  selectedMapId: string | number | null;
+  renameMapId: string | number | null;
   renameDraft: string;
   nowMs: number;
   onToggleCollapsed: () => void;
   onCreateNewMap: () => void;
-  onSelectMap: (mapId: string) => void;
+  onSelectMap: (mapId: string | number) => void;
   onBeginRename: (map: StoredMindMap) => void;
   onRenameDraftChange: (nextDraft: string) => void;
-  onCommitRename: (mapId: string) => void;
+  onCommitRename: (mapId: string | number) => void;
   onCancelRename: () => void;
-  onDeleteMap: (mapId: string) => void;
+  onDeleteMap: (mapId: string | number) => void;
   onStartResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
 };
 

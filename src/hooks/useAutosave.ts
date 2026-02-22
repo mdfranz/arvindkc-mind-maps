@@ -9,9 +9,9 @@ type UseAutosaveParams = {
   blocked: boolean;
   nodes: MindModelNode[];
   edges: Edge[];
-  selectedMapId: string | null;
+  selectedMapId: string | number | null;
   delayMs?: number;
-  persist: (params: { nodes: MindModelNode[]; edges: Edge[]; mapId: string | null }) => void;
+  persist: (params: { nodes: MindModelNode[]; edges: Edge[]; mapId: string | number | null }) => void;
 };
 
 export default function useAutosave(params: UseAutosaveParams): void {

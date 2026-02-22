@@ -76,8 +76,9 @@ export function parseOutlineText(outlineText: string): OutlineItem[] {
     }
 
     const nextDepth = Math.min(item.depth, previousDepth + 1);
-    normalized.push({ ...item, depth: Math.max(0, nextDepth) });
-    previousDepth = Math.max(0, nextDepth);
+    const forcedDepth = Math.max(1, nextDepth);
+    normalized.push({ ...item, depth: forcedDepth });
+    previousDepth = forcedDepth;
   });
 
   return normalized;

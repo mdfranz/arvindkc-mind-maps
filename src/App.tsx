@@ -4,6 +4,7 @@ import MindMapEditor from './components/MindMapEditor';
 import OutlinePanel from './components/OutlinePanel';
 import VaultPanel from './components/VaultPanel';
 import { downloadDataUrl, exportMindMapToPng } from './lib/export';
+import { exportMindMapToSql } from './lib/api';
 import type { StoredMindMap } from './lib/localStore';
 import type { MindNodeModelData } from './types';
 import useAutosave from './hooks/useAutosave';
@@ -41,7 +42,7 @@ export default function App() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [leftWidth, setLeftWidth] = useState(320);
   const [rightWidth, setRightWidth] = useState(300);
-  const [renameMapId, setRenameMapId] = useState<string | null>(null);
+  const [renameMapId, setRenameMapId] = useState<string | number | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
 
   const [focusOnLoad, setFocusOnLoad] = useState(true);
@@ -97,7 +98,31 @@ export default function App() {
     }
   };
 
-  const loadSavedMapById = (mapId: string) => {
+  const handleExportSql = async () => {
+    if (typeof selectedMapId !== 'number') {
+      setStatus('SQL export is only available for maps saved to the vault.');
+      return;
+    }
+
+    try {
+      setStatus('Generating SQL...');
+      const sqlText = await exportMindMapToSql(selectedMapId);
+      const blob = new Blob([sqlText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${title.replace(/\s+/g, '-').toLowerCase() || 'mindmap'}.sql`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus('SQL downloaded.');
+    } catch (error) {
+      setStatus(
+        `SQL export failed: ${error instanceof Error ? error.message : 'Unexpected error while exporting.'}`
+      );
+    }
+  };
+
+  const loadSavedMapById = (mapId: string | number) => {
     setFocusOnLoad(true);
     loadSavedMapFromVault(mapId);
     setRenameMapId(null);
@@ -108,16 +133,16 @@ export default function App() {
     setRenameDraft(map.title);
   };
 
-  const commitRenameMap = (mapId: string) => {
+  const commitRenameMap = (mapId: string | number) => {
     const nextTitle = renameDraft.trim() || 'Untitled Mind Map';
     const existing = savedMaps.some((map) => map.id === mapId);
     if (existing) {
-      renameSavedMap(mapId, nextTitle);
+      void renameSavedMap(mapId, nextTitle);
     }
     setRenameMapId(null);
   };
 
-  const deleteSavedMap = async (mapId: string) => {
+  const deleteSavedMap = async (mapId: string | number) => {
     setRenameMapId(null);
     await deleteSavedMapFromVault(mapId);
   };
@@ -213,6 +238,20 @@ export default function App() {
                 <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
                 <path d="M9 14l2-2 2 2" />
                 <path d="M11 12v5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-btn"
+              title="Export SQL"
+              aria-label="Export SQL"
+              onClick={handleExportSql}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16v12H4z" />
+                <path d="M4 10h16M12 10v8" />
+                <path d="M12 6v4" />
+                <text x="6" y="15" fontSize="6" fontWeight="bold">SQL</text>
               </svg>
             </button>
             <button

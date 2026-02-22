@@ -7,7 +7,7 @@ const KEY_KEY = 'mymind.vault.key.v2';
 type MindFlowNode = Node<MindNodeModelData, 'mind'>;
 
 export type StoredMindMap = {
-  id: string;
+  id: string | number;
   title: string;
   updatedAt: string;
   nodes: MindFlowNode[];
