@@ -24,7 +24,6 @@ type MindMapEditorProps = {
   onSnapshotReady: (container: HTMLElement | null) => void;
   onStateChange: (nodes: MindFlowNode[], edges: Edge[]) => void;
   onExportPng: () => void;
-  onExportDoc: () => void;
 };
 
 const CHILD_X_OFFSET = 260;
@@ -188,8 +187,7 @@ export default function MindMapEditor({
   onCreateNewMap,
   onSnapshotReady,
   onStateChange,
-  onExportPng,
-  onExportDoc
+  onExportPng
 }: MindMapEditorProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -462,10 +460,6 @@ export default function MindMapEditor({
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
-      if (target.closest('.toolbar')) {
-        return;
-      }
-
       const typingTarget =
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
@@ -473,11 +467,7 @@ export default function MindMapEditor({
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
-        if (event.shiftKey) {
-          onExportDoc();
-        } else {
-          onExportPng();
-        }
+        onExportPng();
         return;
       }
 
@@ -539,17 +529,7 @@ export default function MindMapEditor({
         moveSelection(-1);
       }
     },
-    [
-      addChild,
-      addSibling,
-      moveSelection,
-      onExportDoc,
-      onExportPng,
-      onCreateNewMap,
-      organizeMap,
-      removeSelected,
-      selectedNodeId
-    ]
+    [addChild, addSibling, moveSelection, onExportPng, onCreateNewMap, organizeMap, removeSelected, selectedNodeId]
   );
 
   useEffect(() => {

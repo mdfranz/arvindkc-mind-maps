@@ -1,8 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { MindNodeData } from '../types';
 
-const STORAGE_KEY = 'mymind.encrypted.v1';
-const PBKDF2_ITERATIONS = 210000;
+const STORAGE_KEY = 'mymind.vault.v2';
+const KEY_KEY = 'mymind.vault.key.v2';
 
 type MindFlowNode = Node<MindNodeData, 'mind'>;
 
@@ -19,8 +19,7 @@ type Vault = {
 };
 
 type EncryptedVault = {
-  v: 1;
-  salt: string;
+  v: 2;
   iv: string;
   data: string;
 };
@@ -49,79 +48,58 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
+async function getOrCreateKey(): Promise<CryptoKey> {
+  const existing = localStorage.getItem(KEY_KEY);
 
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: toArrayBuffer(salt),
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    {
-      name: 'AES-GCM',
-      length: 256
-    },
-    false,
-    ['encrypt', 'decrypt']
-  );
+  if (existing) {
+    const raw = base64ToBytes(existing);
+    return crypto.subtle.importKey('raw', toArrayBuffer(raw), { name: 'AES-GCM' }, true, [
+      'encrypt',
+      'decrypt'
+    ]);
+  }
+
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt'
+  ]);
+
+  const exported = await crypto.subtle.exportKey('raw', key);
+  localStorage.setItem(KEY_KEY, bytesToBase64(new Uint8Array(exported)));
+
+  return key;
 }
 
-async function encryptVault(vault: Vault, passphrase: string): Promise<EncryptedVault> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+async function encryptVault(vault: Vault): Promise<EncryptedVault> {
+  const key = await getOrCreateKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(passphrase, salt);
 
   const plaintext = encoder.encode(JSON.stringify(vault));
-  const ciphertext = await crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: toArrayBuffer(iv)
-    },
-    key,
-    plaintext
-  );
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: toArrayBuffer(iv) }, key, plaintext);
 
   return {
-    v: 1,
-    salt: bytesToBase64(salt),
+    v: 2,
     iv: bytesToBase64(iv),
     data: bytesToBase64(new Uint8Array(ciphertext))
   };
 }
 
-async function decryptVault(payload: EncryptedVault, passphrase: string): Promise<Vault> {
-  const salt = base64ToBytes(payload.salt);
+async function decryptVault(payload: EncryptedVault): Promise<Vault> {
+  const key = await getOrCreateKey();
   const iv = base64ToBytes(payload.iv);
   const encrypted = base64ToBytes(payload.data);
 
-  const key = await deriveKey(passphrase, salt);
   const decrypted = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: toArrayBuffer(iv)
-    },
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
     key,
     toArrayBuffer(encrypted)
   );
 
-  const json = decoder.decode(decrypted);
-  const parsed = JSON.parse(json) as Vault;
-
-  return {
-    maps: Array.isArray(parsed.maps) ? parsed.maps : []
-  };
+  const parsed = JSON.parse(decoder.decode(decrypted)) as Vault;
+  return { maps: Array.isArray(parsed.maps) ? parsed.maps : [] };
 }
 
-export async function loadEncryptedMaps(passphrase: string): Promise<StoredMindMap[]> {
+export async function loadLocalMaps(): Promise<StoredMindMap[]> {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
     return [];
@@ -131,23 +109,22 @@ export async function loadEncryptedMaps(passphrase: string): Promise<StoredMindM
   try {
     payload = JSON.parse(raw) as EncryptedVault;
   } catch {
-    throw new Error('Encrypted local storage is unreadable.');
+    throw new Error('Saved local maps are unreadable.');
   }
 
-  if (payload.v !== 1 || !payload.salt || !payload.iv || !payload.data) {
-    throw new Error('Encrypted local storage format is invalid.');
+  if (payload.v !== 2 || !payload.iv || !payload.data) {
+    throw new Error('Saved local maps are invalid.');
   }
 
   try {
-    const vault = await decryptVault(payload, passphrase);
+    const vault = await decryptVault(payload);
     return vault.maps;
   } catch {
-    throw new Error('Failed to decrypt local maps. Check your passphrase.');
+    throw new Error('Unable to decrypt local maps for this browser profile.');
   }
 }
 
-export async function saveEncryptedMaps(maps: StoredMindMap[], passphrase: string): Promise<void> {
-  const vault: Vault = { maps };
-  const encrypted = await encryptVault(vault, passphrase);
+export async function saveLocalMaps(maps: StoredMindMap[]): Promise<void> {
+  const encrypted = await encryptVault({ maps });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
 }

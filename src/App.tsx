@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Edge, Node } from '@xyflow/react';
 import MindMapEditor from './components/MindMapEditor';
-import { dataUrlToBlob, downloadDataUrl, exportMindMapToPng } from './lib/export';
-import { exportToGoogleDoc } from './lib/googleDocs';
-import { loadEncryptedMaps, saveEncryptedMaps, type StoredMindMap } from './lib/localStore';
+import { downloadDataUrl, exportMindMapToPng } from './lib/export';
+import { loadLocalMaps, saveLocalMaps, type StoredMindMap } from './lib/localStore';
 import { buildOutline, outlineToText } from './lib/outline';
 import type { MindNodeData } from './types';
 
@@ -24,15 +23,53 @@ function createEmptyMap(): { nodes: MindFlowNode[]; edges: Edge[] } {
   };
 }
 
+function upsertMap(maps: StoredMindMap[], map: StoredMindMap): StoredMindMap[] {
+  const index = maps.findIndex((item) => item.id === map.id);
+  const next = [...maps];
+
+  if (index >= 0) {
+    next[index] = map;
+  } else {
+    next.push(map);
+  }
+
+  return next.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function formatRelativeTime(updatedAtIso: string, nowMs: number): string {
+  const deltaMs = Math.max(0, nowMs - new Date(updatedAtIso).getTime());
+  const seconds = Math.floor(deltaMs / 1000);
+
+  if (seconds < 45) {
+    return 'just now';
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
+}
+
 export default function App() {
   const [title, setTitle] = useState('Mind Map');
   const [nodes, setNodes] = useState<MindFlowNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [snapshotElement, setSnapshotElement] = useState<HTMLElement | null>(null);
   const [status, setStatus] = useState('Ready');
-  const [docUrl, setDocUrl] = useState('');
 
-  const [passphrase, setPassphrase] = useState('');
   const [savedMaps, setSavedMaps] = useState<StoredMindMap[]>([]);
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
   const [loadGraph, setLoadGraph] = useState<{ nodes: MindFlowNode[]; edges: Edge[] } | null>(null);
@@ -41,8 +78,88 @@ export default function App() {
 
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(320);
+  const [rightWidth, setRightWidth] = useState(300);
+  const [renameMapId, setRenameMapId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const hydratedRef = useRef(false);
+  const autosaveTimeoutRef = useRef<number | null>(null);
 
   const outline = useMemo(() => buildOutline(nodes, edges), [nodes, edges]);
+  const outlineMarkdown = useMemo(() => (outline.length > 0 ? outlineToText(outline) : '- Central Idea'), [outline]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const maps = await loadLocalMaps();
+        const ordered = [...maps].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        setSavedMaps(ordered);
+
+        if (ordered.length > 0) {
+          const latest = ordered[0];
+          setLoadGraph({ nodes: latest.nodes, edges: latest.edges });
+          setLoadVersion(1);
+          setSelectedMapId(latest.id);
+          setTitle(latest.title);
+          setStatus(`Loaded most recent local map: ${latest.title}`);
+        } else {
+          setStatus('Ready');
+        }
+      } catch (error) {
+        setStatus(
+          `Local storage unavailable: ${error instanceof Error ? error.message : 'Unexpected error.'}`
+        );
+      } finally {
+        hydratedRef.current = true;
+      }
+    };
+
+    void hydrate();
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current || nodes.length === 0) {
+      return;
+    }
+
+    if (autosaveTimeoutRef.current) {
+      window.clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+      const id = selectedMapId ?? crypto.randomUUID();
+      const map: StoredMindMap = {
+        id,
+        title: title.trim() || 'Untitled Mind Map',
+        updatedAt: new Date().toISOString(),
+        nodes,
+        edges
+      };
+
+      setSelectedMapId(id);
+      setSavedMaps((current) => {
+        const updated = upsertMap(current, map);
+        void saveLocalMaps(updated);
+        return updated;
+      });
+      setStatus('Auto-saved locally.');
+    }, 700);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [edges, nodes, selectedMapId, title]);
 
   const handleExportPng = async () => {
     if (!snapshotElement) {
@@ -62,113 +179,13 @@ export default function App() {
     }
   };
 
-  const handleExportGoogleDoc = async () => {
-    if (!snapshotElement) {
-      setStatus('No mind map canvas found for export.');
-      return;
-    }
-
-    try {
-      setStatus('Rendering image and creating Google Doc...');
-      setDocUrl('');
-      const pngDataUrl = await exportMindMapToPng(snapshotElement);
-      const imageBlob = dataUrlToBlob(pngDataUrl);
-      const response = await exportToGoogleDoc({
-        title,
-        outline,
-        imageBlob
-      });
-      setDocUrl(response.documentUrl);
-      setStatus('Google Doc created.');
-    } catch (error) {
-      setStatus(
-        `Export failed: ${error instanceof Error ? error.message : 'Unexpected error while exporting.'}`
-      );
-    }
-  };
-
-  const unlockStorage = async () => {
-    if (!passphrase.trim()) {
-      setStatus('Set an encryption passphrase to unlock local maps.');
-      return;
-    }
-
-    try {
-      const maps = await loadEncryptedMaps(passphrase);
-      const ordered = [...maps].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-      setSavedMaps(ordered);
-      setStatus(`Encrypted storage unlocked (${ordered.length} maps).`);
-    } catch (error) {
-      setStatus(
-        `Unlock failed: ${error instanceof Error ? error.message : 'Unable to decrypt local maps.'}`
-      );
-    }
-  };
-
-  const saveCurrentMap = async (forceNew = false): Promise<boolean> => {
-    if (!passphrase.trim()) {
-      setStatus('Set an encryption passphrase before saving.');
-      return false;
-    }
-
-    const current = nodes.length > 0 ? { nodes, edges } : createEmptyMap();
-    const now = new Date().toISOString();
-
-    const nextMap: StoredMindMap = {
-      id: forceNew ? crypto.randomUUID() : (selectedMapId ?? crypto.randomUUID()),
-      title: title.trim() || 'Untitled Mind Map',
-      updatedAt: now,
-      nodes: current.nodes,
-      edges: current.edges
-    };
-
-    const existingIndex = savedMaps.findIndex((map) => map.id === nextMap.id);
-    const nextMaps = [...savedMaps];
-
-    if (existingIndex >= 0) {
-      nextMaps[existingIndex] = nextMap;
-    } else {
-      nextMaps.unshift(nextMap);
-    }
-
-    const ordered = [...nextMaps].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-
-    try {
-      await saveEncryptedMaps(ordered, passphrase);
-      setSavedMaps(ordered);
-      setSelectedMapId(nextMap.id);
-      setStatus(forceNew ? 'Mind map saved as new entry.' : 'Mind map saved to encrypted local storage.');
-      return true;
-    } catch (error) {
-      setStatus(
-        `Save failed: ${error instanceof Error ? error.message : 'Unable to save local map.'}`
-      );
-      return false;
-    }
-  };
-
-  const saveAsNewMap = async () => {
-    await saveCurrentMap(true);
-  };
-
-  const createNewMap = async () => {
-    let autoSaved = false;
-
-    if (nodes.length > 0 && passphrase.trim()) {
-      autoSaved = await saveCurrentMap(true);
-    }
-
+  const createNewMap = () => {
     const empty = createEmptyMap();
     setLoadGraph(empty);
     setLoadVersion((current) => current + 1);
     setTitle('Mind Map');
-    setSelectedMapId(null);
-
-    if (autoSaved) {
-      setStatus('Started new map. Previous map was saved in encrypted local storage.');
-    } else {
-      setStatus('Started new map. Set passphrase and use Save to keep maps locally.');
-    }
+    setSelectedMapId(crypto.randomUUID());
+    setStatus('Started new mind map. Previous maps stay in local storage.');
   };
 
   const loadSavedMap = (map: StoredMindMap) => {
@@ -176,30 +193,97 @@ export default function App() {
     setLoadVersion((current) => current + 1);
     setSelectedMapId(map.id);
     setTitle(map.title);
+    setRenameMapId(null);
     setStatus(`Loaded map: ${map.title}`);
   };
 
-  const deleteSavedMap = async (mapId: string) => {
-    if (!passphrase.trim()) {
-      setStatus('Set an encryption passphrase before deleting.');
-      return;
+  const beginRenameMap = (map: StoredMindMap) => {
+    setRenameMapId(map.id);
+    setRenameDraft(map.title);
+  };
+
+  const commitRenameMap = (mapId: string) => {
+    const nextTitle = renameDraft.trim() || 'Untitled Mind Map';
+    let renamed = false;
+
+    setSavedMaps((current) => {
+      const updated = current.map((map) => {
+        if (map.id !== mapId) {
+          return map;
+        }
+
+        renamed = true;
+        return {
+          ...map,
+          title: nextTitle
+        };
+      });
+
+      void saveLocalMaps(updated);
+      return updated;
+    });
+
+    if (selectedMapId === mapId) {
+      setTitle(nextTitle);
     }
 
-    const nextMaps = savedMaps.filter((map) => map.id !== mapId);
-
-    try {
-      await saveEncryptedMaps(nextMaps, passphrase);
-      setSavedMaps(nextMaps);
-      if (selectedMapId === mapId) {
-        setSelectedMapId(null);
-      }
-      setStatus('Saved map deleted from encrypted storage.');
-    } catch (error) {
-      setStatus(
-        `Delete failed: ${error instanceof Error ? error.message : 'Unable to delete local map.'}`
-      );
+    setRenameMapId(null);
+    if (renamed) {
+      setStatus(`Renamed map to "${nextTitle}".`);
     }
   };
+
+  const deleteSavedMap = async (mapId: string) => {
+    const remaining = savedMaps.filter((map) => map.id !== mapId);
+    setSavedMaps(remaining);
+    await saveLocalMaps(remaining);
+    setRenameMapId(null);
+
+    if (selectedMapId === mapId) {
+      if (remaining.length > 0) {
+        loadSavedMap(remaining[0]);
+      } else {
+        createNewMap();
+      }
+    } else {
+      setStatus('Deleted saved map.');
+    }
+  };
+
+  const copyOutline = async () => {
+    try {
+      await navigator.clipboard.writeText(outlineMarkdown);
+      setStatus('Outline copied as Markdown.');
+    } catch {
+      setStatus('Unable to copy outline in this browser context.');
+    }
+  };
+
+  const startResize =
+    (side: 'left' | 'right') => (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = side === 'left' ? leftWidth : rightWidth;
+
+      const onMove = (moveEvent: PointerEvent) => {
+        const delta = moveEvent.clientX - startX;
+
+        if (side === 'left') {
+          setLeftWidth(Math.max(240, Math.min(520, startWidth + delta)));
+        } else {
+          setRightWidth(Math.max(240, Math.min(520, startWidth - delta)));
+        }
+      };
+
+      const onUp = () => {
+        document.body.classList.remove('is-resizing-panels');
+        window.removeEventListener('pointermove', onMove);
+      };
+
+      document.body.classList.add('is-resizing-panels');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp, { once: true });
+    };
 
   return (
     <div className="app-shell">
@@ -208,7 +292,10 @@ export default function App() {
           rightCollapsed ? 'right-collapsed' : ''
         }`}
       >
-        <aside className={`side-panel left-panel ${leftCollapsed ? 'is-collapsed' : ''}`}>
+        <aside
+          className={`side-panel left-panel ${leftCollapsed ? 'is-collapsed' : ''}`}
+          style={leftCollapsed ? undefined : { width: leftWidth }}
+        >
           <div className="side-header">
             {!leftCollapsed ? <h2>My Mind Maps</h2> : null}
             <button
@@ -224,85 +311,121 @@ export default function App() {
           {!leftCollapsed ? (
             <div className="side-content">
               <div className="left-actions">
-                <button type="button" onClick={() => void createNewMap()}>
-                  New Mind Map
-                </button>
-                <button type="button" onClick={() => setOrganizeVersion((current) => current + 1)}>
-                  Organize
-                </button>
-              </div>
-
-              <label className="panel-field">
-                Document title
-                <input value={title} onChange={(event) => setTitle(event.target.value)} />
-              </label>
-
-              <div className="actions">
-                <button type="button" onClick={handleExportPng}>
-                  Export PNG
-                </button>
-                <button type="button" className="primary" onClick={handleExportGoogleDoc}>
-                  Export to Google Doc
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="New Mind Map"
+                  aria-label="New Mind Map"
+                  onClick={() => void createNewMap()}
+                >
+                  +
                 </button>
               </div>
+              <div className="vault-list">
+                {savedMaps.length === 0 ? <p>No saved maps yet.</p> : null}
+                {savedMaps.map((map) => (
+                  <div
+                    key={map.id}
+                    className={`vault-item ${selectedMapId === map.id ? 'is-selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => loadSavedMap(map)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        loadSavedMap(map);
+                      }
+                    }}
+                  >
+                    {renameMapId === map.id ? (
+                      <div className="vault-main">
+                        <input
+                          autoFocus
+                          className="vault-rename"
+                          value={renameDraft}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          onBlur={() => commitRenameMap(map.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              commitRenameMap(map.id);
+                            }
 
-              <div className="vault-panel">
-                <h3>Encrypted Local Storage</h3>
-                <input
-                  type="password"
-                  className="vault-input"
-                  placeholder="Encryption passphrase"
-                  value={passphrase}
-                  onChange={(event) => setPassphrase(event.target.value)}
-                />
-                <div className="vault-actions">
-                  <button type="button" onClick={() => void unlockStorage()}>
-                    Unlock
-                  </button>
-                  <button type="button" onClick={() => void saveCurrentMap()}>
-                    Save
-                  </button>
-                  <button type="button" onClick={() => void saveAsNewMap()}>
-                    Save As New
-                  </button>
-                </div>
-                <div className="vault-list">
-                  {savedMaps.length === 0 ? <p>No saved maps in local encrypted storage.</p> : null}
-                  {savedMaps.map((map) => (
-                    <div key={map.id} className="vault-item">
-                      <button
-                        type="button"
-                        className={`vault-load ${selectedMapId === map.id ? 'is-selected' : ''}`}
-                        onClick={() => loadSavedMap(map)}
-                      >
-                        {map.title}
-                      </button>
-                      <small>{new Date(map.updatedAt).toLocaleString()}</small>
-                      <button
-                        type="button"
-                        className="vault-delete"
-                        onClick={() => void deleteSavedMap(map.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="shortcuts-panel">
-                <h3>Shortcuts</h3>
-                <p><code>Enter</code>: Add child</p>
-                <p><code>Tab</code>: Add sibling</p>
-                <p><code>F2</code>: Rename</p>
-                <p><code>Ctrl/Cmd+N</code>: New map</p>
-                <p><code>Ctrl/Cmd+L</code>: Organize</p>
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              setRenameMapId(null);
+                            }
+                          }}
+                        />
+                        <span className="vault-time">{formatRelativeTime(map.updatedAt, nowMs)}</span>
+                      </div>
+                    ) : (
+                      <div className="vault-main">
+                        <button
+                          type="button"
+                          className="vault-name-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            beginRenameMap(map);
+                          }}
+                        >
+                          {map.title}
+                        </button>
+                        <span className="vault-time">{formatRelativeTime(map.updatedAt, nowMs)}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="vault-delete-btn"
+                      aria-label={`Remove ${map.title}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void deleteSavedMap(map.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}
         </aside>
+        {!leftCollapsed ? (
+          <div className="panel-resizer" onPointerDown={startResize('left')} aria-hidden="true" />
+        ) : null}
 
         <section className="canvas-panel center-panel">
+          <div className="canvas-icons">
+            <button
+              type="button"
+              className="canvas-icon-btn"
+              title="Organize"
+              aria-label="Organize"
+              onClick={() => setOrganizeVersion((current) => current + 1)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2" />
+                <path d="M4 12c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2" />
+                <path d="M4 17c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-btn"
+              title="Export PNG"
+              aria-label="Export PNG"
+              onClick={handleExportPng}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v9" />
+                <path d="m8.5 10.5 3.5 3.5 3.5-3.5" />
+                <rect x="4" y="16" width="16" height="4" rx="1.5" ry="1.5" />
+              </svg>
+            </button>
+          </div>
+
           <MindMapEditor
             loadGraph={loadGraph}
             loadVersion={loadVersion}
@@ -310,16 +433,20 @@ export default function App() {
             onCreateNewMap={() => void createNewMap()}
             onSnapshotReady={setSnapshotElement}
             onExportPng={handleExportPng}
-            onExportDoc={handleExportGoogleDoc}
             onStateChange={(nextNodes, nextEdges) => {
               setNodes(nextNodes);
               setEdges(nextEdges);
             }}
           />
-
         </section>
+        {!rightCollapsed ? (
+          <div className="panel-resizer" onPointerDown={startResize('right')} aria-hidden="true" />
+        ) : null}
 
-        <aside className={`side-panel right-panel ${rightCollapsed ? 'is-collapsed' : ''}`}>
+        <aside
+          className={`side-panel right-panel ${rightCollapsed ? 'is-collapsed' : ''}`}
+          style={rightCollapsed ? undefined : { width: rightWidth }}
+        >
           <div className="side-header">
             {!rightCollapsed ? <h2>Outline</h2> : null}
             <button
@@ -334,13 +461,20 @@ export default function App() {
 
           {!rightCollapsed ? (
             <div className="side-content">
-              <pre>{outline.length > 0 ? outlineToText(outline) : 'Add topics to build your outline.'}</pre>
+              <div className="outline-head">
+                <h3>Markdown</h3>
+                <button
+                  type="button"
+                  className="outline-copy"
+                  title="Copy outline"
+                  aria-label="Copy outline"
+                  onClick={() => void copyOutline()}
+                >
+                  ⧉
+                </button>
+              </div>
+              <pre>{outlineMarkdown}</pre>
               <p className="status">{status}</p>
-              {docUrl ? (
-                <a href={docUrl} target="_blank" rel="noreferrer">
-                  Open Google Doc
-                </a>
-              ) : null}
             </div>
           ) : null}
         </aside>
