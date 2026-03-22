@@ -2,6 +2,8 @@
 
 Browser-based React app for building mind maps with local autosave and markdown outline support.
 
+![My Mind Maps](./mindmaps.png)
+
 ## Features
 
 - **Vault-based Management**: Dedicated panel to create, switch, and manage multiple mind maps.
