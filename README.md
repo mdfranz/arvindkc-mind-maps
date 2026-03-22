@@ -54,6 +54,7 @@ graph TD
     end
 ```
 
+
 ## Keyboard Shortcuts
 
 - `Enter`: add child topic and focus text edit immediately
@@ -84,6 +85,16 @@ npm run dev
 ```bash
 npm test
 ```
+
+## Key Packages
+
+- **React 18**: Core UI framework and state management.
+- **@xyflow/react**: Interactive node-based graph editor for mind mapping.
+- **html-to-image**: Converts DOM nodes to high-quality PNG images for export.
+- **Vite 8**: Modern frontend build tool and fast development server.
+- **Vitest 4**: Vite-native unit testing framework for project logic.
+- **TypeScript**: Static typing for improved developer experience and safety.
+
 
 ## License
 
