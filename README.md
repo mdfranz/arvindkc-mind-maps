@@ -18,34 +18,34 @@ Browser-based React app for building mind maps with local autosave and markdown 
 ## Architecture
 
 ```mermaid
-graph TD
-    subgraph UI["UI Components"]
-        App["App Shell"]
-        VaultPanel["Vault Panel"]
-        Editor["Mind Map Editor"]
-        OutlinePanel["Outline Panel"]
+flowchart TD
+    subgraph UI [UI Components]
+        App[App Shell]
+        VaultPanel[Vault Panel]
+        Editor[Mind Map Editor]
+        OutlinePanel[Outline Panel]
         
         App --> VaultPanel
         App --> Editor
         App --> OutlinePanel
     end
 
-    subgraph Hooks["Custom Hooks (State)"]
-        useVault["useVault (Map Lifecycle)"]
-        useAutosave["useAutosave (Persistence)"]
-        useOutline["useOutline (Sync Graph & MD)"]
+    subgraph Hooks [Custom Hooks]
+        useVault[useVault]
+        useAutosave[useAutosave]
+        useOutline[useOutline]
         
         App --> useVault
         App --> useAutosave
         App --> useOutline
     end
 
-    subgraph Libs["Domain Logic & Libraries"]
-        ReactFlow["@xyflow/react"]
-        LocalStore["localStore.ts (LocalStorage API)"]
-        Layout["layout.ts (Graph Layout Math)"]
-        Export["export.ts (PNG/MD Export)"]
-        OutlineSync["outlineSync.ts (MD Parsing)"]
+    subgraph Libs [Libraries]
+        ReactFlow[React Flow]
+        LocalStore[LocalStore API]
+        Layout[Graph Layout]
+        Export[Export Utility]
+        OutlineSync[Markdown Sync]
 
         Editor --> ReactFlow
         useVault --> LocalStore
