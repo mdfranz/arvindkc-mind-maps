@@ -94,27 +94,34 @@ export default function useVault() {
   );
 
   const renameSavedMap = useCallback(
-    (mapId: string, nextTitle: string) => {
-      setSavedMaps((current) => {
-        const updated = current.map((map) => (map.id === mapId ? { ...map, title: nextTitle } : map));
-        void saveLocalMaps(updated);
-        return updated;
-      });
+    async (mapId: string, nextTitle: string) => {
+      const updated = savedMaps.map((map) => (map.id === mapId ? { ...map, title: nextTitle } : map));
+      setSavedMaps(updated);
 
       if (selectedMapId === mapId) {
         setTitle(nextTitle);
       }
 
-      setStatus(`Renamed map to "${nextTitle}".`);
+      try {
+        await saveLocalMaps(updated);
+        setStatus(`Renamed map to "${nextTitle}".`);
+      } catch (error) {
+        setStatus(`Save failed: ${error instanceof Error ? error.message : 'Unexpected error.'}`);
+      }
     },
-    [selectedMapId]
+    [savedMaps, selectedMapId]
   );
 
   const deleteSavedMap = useCallback(
     async (mapId: string) => {
       const remaining = savedMaps.filter((map) => map.id !== mapId);
       setSavedMaps(remaining);
-      await saveLocalMaps(remaining);
+      try {
+        await saveLocalMaps(remaining);
+      } catch (error) {
+        setStatus(`Save failed: ${error instanceof Error ? error.message : 'Unexpected error.'}`);
+        return;
+      }
 
       if (selectedMapId === mapId) {
         if (remaining.length > 0) {
@@ -148,12 +155,12 @@ export default function useVault() {
       };
 
       setSelectedMapId(id);
-      setSavedMaps((current) => {
-        const updated = upsertMap(current, map);
-        void saveLocalMaps(updated);
-        return updated;
-      });
-      setStatus('Auto-saved locally.');
+      const updated = upsertMap(savedMaps, map);
+      setSavedMaps(updated);
+      saveLocalMaps(updated).then(
+        () => { setStatus('Auto-saved locally.'); },
+        (error: unknown) => { setStatus(`Auto-save failed: ${error instanceof Error ? error.message : 'Unexpected error.'}`); }
+      );
     },
     [savedMaps, title]
   );

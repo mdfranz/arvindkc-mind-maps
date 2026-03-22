@@ -65,7 +65,11 @@ async function getOrCreateKey(): Promise<CryptoKey> {
   ]);
 
   const exported = await crypto.subtle.exportKey('raw', key);
-  localStorage.setItem(KEY_KEY, bytesToBase64(new Uint8Array(exported)));
+  try {
+    localStorage.setItem(KEY_KEY, bytesToBase64(new Uint8Array(exported)));
+  } catch {
+    // Key storage failed; encryption works this session but the key won't persist across reloads.
+  }
 
   return key;
 }
@@ -126,5 +130,13 @@ export async function loadLocalMaps(): Promise<StoredMindMap[]> {
 
 export async function saveLocalMaps(maps: StoredMindMap[]): Promise<void> {
   const encrypted = await encryptVault({ maps });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
+  } catch (error) {
+    throw new Error(
+      error instanceof DOMException && error.name === 'QuotaExceededError'
+        ? 'Storage quota exceeded. Delete some maps to free space.'
+        : 'Unable to write to local storage.'
+    );
+  }
 }
